@@ -8,26 +8,31 @@ public class CameraFollow : MonoBehaviour
     public Transform target; // Takip edilecek hedef (karakter)
 
     [Header("Camera Back View Settings")]
-    [SerializeField] private float distance = 5f; // Karakterden uzaklýk
+    [SerializeField] private float distance = 7f; // Karakterden uzaklýk
     [SerializeField] private float height = 1.6f; // Kamera yüksekliði
     [SerializeField] private float smoothSpeed = 0.125f; // Kamera takip yumuþaklýðý
 
-    private void LateUpdate()
+    /* private void LateUpdate()
+     {
+         if (target == null) return;
+
+         // Karakterin arkasýndaki tam pozisyonu hesapla
+         Vector3 desiredPosition = target.position
+             - target.forward * distance  // Karakterin tam arkasýna al
+             + Vector3.up * height;        // Belirli bir yüksekliðe ayarla
+
+         // Yumuþak kamera takibi
+         Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed);
+
+         // Kameranýn konumunu güncelle
+         transform.position = smoothedPosition;
+
+         // Kamerayý hedefe doðru çevir
+         transform.LookAt(target);
+     }*/
+
+    private void Update()
     {
-        if (target == null) return;
-
-        // Karakterin arkasýndaki tam pozisyonu hesapla
-        Vector3 desiredPosition = target.position
-            - target.forward * distance  // Karakterin tam arkasýna al
-            + Vector3.up * height;        // Belirli bir yüksekliðe ayarla
-
-        // Yumuþak kamera takibi
-        Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed);
-
-        // Kameranýn konumunu güncelle
-        transform.position = smoothedPosition;
-
-        // Kamerayý hedefe doðru çevir
-        transform.LookAt(target);
+        transform.position = target.position - new Vector3(0, 0, distance);
     }
 }
