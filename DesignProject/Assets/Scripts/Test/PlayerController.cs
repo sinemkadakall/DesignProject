@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
+    //Bu kod sayesinde karakter yürüme,dönme, yer çekimine baðlý düþme
+    //gibi temel haraktelerini yapmasýný saðlar
 
     [SerializeField] float moveSpeed = 5f;
     [SerializeField] float rotationSpeed = 500f;
@@ -13,6 +15,8 @@ public class PlayerController : MonoBehaviour
     [SerializeField] LayerMask groundLayer;
 
     bool isGrounded;
+
+    //Yerçekimi etkisi bu hýzdan kontrol edilir
     float ySpeed;
 
     Quaternion targetRotation;
@@ -31,16 +35,23 @@ public class PlayerController : MonoBehaviour
     }
     private void Update()
     {
+
+        //Oyuncudan yatay ve dikey girdi alýyor.
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
 
+        //Hareket miktarýný hesaplamak için
         float moveAmount = Mathf.Clamp01(Mathf.Abs(h) + Mathf.Abs(v));
 
+        //Hareket girdisini normalize et
         var moveInput = (new Vector3(h, 0, v)).normalized;
 
+        //Kamera rotasyonuna göre hareket yönünü ayarla
         var moveDir=cameraController.PlanarRotation * moveInput;
 
+        //Zemin kontrolü
         GroundCheck();
+
         if (isGrounded)
         {
             ySpeed = -0.5f;
@@ -50,8 +61,11 @@ public class PlayerController : MonoBehaviour
             ySpeed += Physics.gravity.y * Time.deltaTime;
         }
 
+        //Hýzý hesaplamak için
         var velocity = moveDir * moveSpeed;
         velocity.y = ySpeed;
+
+        //Karakteri hesaplamak için
         characterController.Move(velocity * Time.deltaTime);
 
         if (moveAmount > 0)
@@ -59,6 +73,8 @@ public class PlayerController : MonoBehaviour
             //Karakterin yüzü hareket yönüne doðru yönelir
             targetRotation= Quaternion.LookRotation(moveDir);
         }
+
+        //Karakteri yavaþça hedef noktasýna döndürmek için
         transform.rotation = Quaternion.RotateTowards( transform.rotation, targetRotation,rotationSpeed * Time.deltaTime);
 
 

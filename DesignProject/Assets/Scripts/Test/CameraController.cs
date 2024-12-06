@@ -40,7 +40,7 @@ public class CameraController : MonoBehaviour
         //Yatay kamera dönüþ için
         rotationY += Input.GetAxis("Mouse X")*invertXVal * rotationSpeed;
 
-        //Dikey kamera döüþü için
+        //Dikey kamera dönüþü için
         rotationX += Input.GetAxis("Mouse Y") *invertYVal* rotationSpeed;
         rotationX = Mathf.Clamp(rotationX,minVerticalAngle,maxVerticalAngle);
 
