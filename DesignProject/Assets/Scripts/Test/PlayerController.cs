@@ -7,7 +7,7 @@ public class PlayerController : MonoBehaviour
     //Bu kod sayesinde karakter yürüme,dönme, yer çekimine baðlý düþme
     //gibi temel haraktelerini yapmasýný saðlar
 
-    [SerializeField] float moveSpeed = 5f;
+    [SerializeField] float moveSpeed = 2f;
     [SerializeField] float rotationSpeed = 500f;
 
     [SerializeField] float groundCheckRadius = 0.2f;
