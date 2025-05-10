@@ -6,6 +6,7 @@ TagManager:
   tags:
   - AnswerSlot
   - DropZone
+  - Block
   layers:
   - Default
   - TransparentFX
