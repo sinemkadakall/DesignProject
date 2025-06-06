@@ -4,7 +4,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-
 public class GameManager : MonoBehaviour
 {
     [System.Serializable]
@@ -22,9 +21,14 @@ public class GameManager : MonoBehaviour
     public Transform numberParent;      // Alt kýsýmdaki sayýlar için parent
     public GameObject numberPrefab;     // Sürüklenebilir sayý prefabý
 
+    [Header("Score UI")]
+    public TextMeshProUGUI correctCountText;  // Doðru sayýsýný gösteren text
+    public TextMeshProUGUI wrongCountText;    // Yanlýþ sayýsýný gösteren text
+
     [Header("Game Settings")]
     public int totalNumbers = 10;       // Alt kýsýmda gösterilecek toplam sayý
     public int maxNumber = 9;           // Rastgele sayýlar için maksimum deðer
+    public float newRoundDelay = 2f;    // Yeni round için bekleme süresi
 
     [Header("Audio")]
     public AudioSource audioSource; // Inspector'dan atanacak
@@ -32,11 +36,19 @@ public class GameManager : MonoBehaviour
     public AudioClip wrongSound;   // Yanlýþ cevap ses efekti
 
     private int[] operationResults;
-    // Her iþlem için doðru sonuçlar
     private int[] firstNumbers;   // Ýlk sayýlarý takip etmek için
     private int[] secondNumbers;  // Ýkinci sayýlarý takip etmek için
     private int[] operationTypes; // Ýþlem türlerini takip etmek için
     private List<int> availableNumbers = new List<int>();
+
+    // Yeni eklenen deðiþkenler
+    private bool[] operationCompleted; // Hangi iþlemlerin tamamlandýðýný takip eder
+    private int completedOperationsCount = 0; // Tamamlanan iþlem sayýsý
+
+    // Score tracking deðiþkenleri
+    private int correctAnswersCount = 0;
+    private int wrongAnswersCount = 0;
+    private bool[] operationHadWrongAnswer; // Her iþlem için yanlýþ cevap verilip verilmediðini takip eder
 
     void Start()
     {
@@ -47,17 +59,20 @@ public class GameManager : MonoBehaviour
         InitializeGame();
     }
 
- 
     void InitializeGame()
     {
         operationResults = new int[operationContainers.Length];
         firstNumbers = new int[operationContainers.Length];
         secondNumbers = new int[operationContainers.Length];
         operationTypes = new int[operationContainers.Length];
+        operationCompleted = new bool[operationContainers.Length];
+        operationHadWrongAnswer = new bool[operationContainers.Length]; // Yeni eklenen
+        completedOperationsCount = 0;
+
         GenerateOperations();
         GenerateNumbers();
+        UpdateScoreUI();
     }
-
 
     void GenerateOperations()
     {
@@ -117,6 +132,7 @@ public class GameManager : MonoBehaviour
             }
         }
     }
+
     void GenerateValidNumbers(int index, int operationType)
     {
         switch (operationType)
@@ -171,7 +187,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-
     void GenerateNumbers()
     {
         ClearExistingNumbers();
@@ -198,12 +213,22 @@ public class GameManager : MonoBehaviour
 
         ShuffleList(availableNumbers);
 
+        // Sayýlarý oluþturmadan önce bir frame bekle
+        StartCoroutine(CreateNumbersWithDelay());
+    }
+
+    // Sayýlarý gecikmeli oluþturan coroutine
+    IEnumerator CreateNumbersWithDelay()
+    {
+        yield return null; // Bir frame bekle
+
         foreach (int number in availableNumbers)
         {
             CreateNumberObject(number);
         }
-    }
 
+        Debug.Log($"Generated {availableNumbers.Count} numbers for new round");
+    }
 
     void CreateNumberObject(int number)
     {
@@ -220,13 +245,20 @@ public class GameManager : MonoBehaviour
 
     void ClearExistingNumbers()
     {
+        // Mevcut tüm sayý objelerini temizle
+        List<Transform> childrenToDestroy = new List<Transform>();
+
         foreach (Transform child in numberParent)
+        {
+            childrenToDestroy.Add(child);
+        }
+
+        foreach (Transform child in childrenToDestroy)
         {
             Destroy(child.gameObject);
         }
     }
 
-   
     Sprite GetNumberSprite(int number)
     {
         foreach (NumberData data in numberSprites)
@@ -239,7 +271,6 @@ public class GameManager : MonoBehaviour
         return null;
     }
 
-  
     void ShuffleList<T>(List<T> list)
     {
         int n = list.Count;
@@ -253,7 +284,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-   
     public bool CheckAnswer(int answer, Transform dropZone)
     {
         int zoneIndex = System.Array.IndexOf(dropZones, dropZone);
@@ -261,14 +291,60 @@ public class GameManager : MonoBehaviour
         {
             bool isCorrect = operationResults[zoneIndex] == answer;
 
-            // Doðru veya yanlýþ ses efektini çal
-            if (isCorrect && correctSound != null)
+            if (isCorrect)
             {
-                audioSource.PlayOneShot(correctSound);
+                // Doðru cevap ses efektini çal
+                if (correctSound != null)
+                {
+                    audioSource.PlayOneShot(correctSound);
+                }
+
+                // Bu iþlemi tamamlandý olarak iþaretle
+                if (!operationCompleted[zoneIndex])
+                {
+                    operationCompleted[zoneIndex] = true;
+                    completedOperationsCount++;
+
+                    // Eðer bu iþlem için daha önce yanlýþ cevap verilmiþse yanlýþ sayýsýný artýr
+                    // Aksi halde doðru sayýsýný artýr
+                    if (operationHadWrongAnswer[zoneIndex])
+                    {
+                        wrongAnswersCount++;
+                        Debug.Log($"Operation {zoneIndex} completed with wrong attempt first - counted as wrong");
+                    }
+                    else
+                    {
+                        correctAnswersCount++;
+                        Debug.Log($"Operation {zoneIndex} completed correctly on first try - counted as correct");
+                    }
+
+                    UpdateScoreUI();
+
+                    Debug.Log($"Operation {zoneIndex} completed! Total completed: {completedOperationsCount}/{operationContainers.Length}");
+
+                    // Tüm iþlemler tamamlandýysa yeni round baþlat
+                    if (completedOperationsCount >= operationContainers.Length)
+                    {
+                        StartCoroutine(StartNewRound());
+                    }
+                }
             }
-            else if (!isCorrect && wrongSound != null)
+            else
             {
-                audioSource.PlayOneShot(wrongSound);
+                // Yanlýþ cevap
+                if (wrongSound != null)
+                {
+                    audioSource.PlayOneShot(wrongSound);
+                }
+
+                // Bu iþlem tamamlanmamýþsa yanlýþ sayýsýný doðrudan artýr
+                if (!operationCompleted[zoneIndex])
+                {
+                    wrongAnswersCount++;
+                    operationHadWrongAnswer[zoneIndex] = true;
+                    UpdateScoreUI(); // Her yanlýþta güncelle
+                    Debug.Log($"Wrong answer for operation {zoneIndex} - wrong count increased");
+                }
             }
 
             return isCorrect;
@@ -278,12 +354,110 @@ public class GameManager : MonoBehaviour
         return false;
     }
 
+    // Score UI'sýný güncelleme metodu
+    private void UpdateScoreUI()
+    {
+        if (correctCountText != null)
+        {
+            correctCountText.text = correctAnswersCount.ToString();
+        }
 
-    
+        if (wrongCountText != null)
+        {
+            wrongCountText.text = wrongAnswersCount.ToString();
+        }
+    }
+
+    // Yeni eklenen metod: Yeni round baþlatma
+    private IEnumerator StartNewRound()
+    {
+        Debug.Log("All operations completed! Starting new round in " + newRoundDelay + " seconds...");
+
+        // Belirtilen süre kadar bekle
+        yield return new WaitForSeconds(newRoundDelay);
+
+        // Drop zone'lardan sayýlarý temizle
+        ClearDropZones();
+
+        // Bir frame bekle ki Unity objelerini düzgün temizleyebilsin
+        yield return null;
+
+        // Yeni oyunu baþlat (score sýfýrlanmaz, sadece operasyon durumlarý sýfýrlanýr)
+        InitializeGame();
+
+        Debug.Log("New round started!");
+    }
+
+    // Yeni eklenen metod: Drop zone'larý temizleme
+    private void ClearDropZones()
+    {
+        foreach (Transform dropZone in dropZones)
+        {
+            // Önce tüm çocuk objeleri bir listeye al
+            List<Transform> childrenToDestroy = new List<Transform>();
+
+            foreach (Transform child in dropZone)
+            {
+                NumberController numberController = child.GetComponent<NumberController>();
+                if (numberController != null)
+                {
+                    childrenToDestroy.Add(child);
+                }
+            }
+
+            // Sonra listedeki objeleri yok et
+            foreach (Transform child in childrenToDestroy)
+            {
+                Destroy(child.gameObject);
+            }
+
+            // DropZone'u sýfýrla
+            DropZone dropZoneComponent = dropZone.GetComponent<DropZone>();
+            if (dropZoneComponent != null)
+            {
+                dropZoneComponent.ResetZone();
+            }
+        }
+    }
+
+    // Yeni eklenen metod: Manuel yeni round baþlatma (opsiyonel)
+    public void ForceNewRound()
+    {
+        StopAllCoroutines(); // Mevcut coroutine'leri durdur
+        StartCoroutine(StartNewRound());
+    }
+
     public void ResetGame()
     {
+        StopAllCoroutines(); // Tüm coroutine'leri durdur
+        ClearDropZones(); // Drop zone'larý temizle
+
+        // Score'larý sýfýrla
+        correctAnswersCount = 0;
+        wrongAnswersCount = 0;
+        UpdateScoreUI();
+
         InitializeGame();
     }
+
+    // Score'larý sýfýrlama metodu (opsiyonel)
+    public void ResetScores()
+    {
+        correctAnswersCount = 0;
+        wrongAnswersCount = 0;
+        UpdateScoreUI();
+        Debug.Log("Scores reset!");
+    }
+
+    // Mevcut score'larý alma metotlarý (opsiyonel)
+    public int GetCorrectCount()
+    {
+        return correctAnswersCount;
+    }
+
+
+    public int GetWrongCount()
+    {
+        return wrongAnswersCount;
+    }
 }
-
-
