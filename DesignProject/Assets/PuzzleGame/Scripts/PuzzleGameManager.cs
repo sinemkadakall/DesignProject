@@ -240,19 +240,16 @@ public class PuzzleGameManager : MonoBehaviour
         shuffling = false;
     }
 
-    // Brute force shuffling.
+   
     private void Shuffle()
     {
         int count = 0;
         int last = 0;
         while (count < (size * size * size))
         {
-            // Pick a random location.
             int rnd = Random.Range(0, size * size);
-            // Only thing we forbid is undoing the last move.
             if (rnd == last) { continue; }
             last = emptyLocation;
-            // Try surrounding spaces looking for valid move.
             if (SwapIfValid(rnd, -size, size))
             {
                 count++;

@@ -305,20 +305,13 @@ public class GameManager : MonoBehaviour
                     operationCompleted[zoneIndex] = true;
                     completedOperationsCount++;
 
-                    // Eðer bu iþlem için daha önce yanlýþ cevap verilmiþse yanlýþ sayýsýný artýr
-                    // Aksi halde doðru sayýsýný artýr
-                    if (operationHadWrongAnswer[zoneIndex])
-                    {
-                        wrongAnswersCount++;
-                        Debug.Log($"Operation {zoneIndex} completed with wrong attempt first - counted as wrong");
-                    }
-                    else
-                    {
-                        correctAnswersCount++;
-                        Debug.Log($"Operation {zoneIndex} completed correctly on first try - counted as correct");
-                    }
+                    // Doðru cevap verildiðinde sadece doðru sayýsýný artýr
+                    // Daha önce yanlýþ yapýlmýþ olsa bile, doðru tamamlandýðýnda sadece doðru sayar
+                    correctAnswersCount++;
 
                     UpdateScoreUI();
+
+                    Debug.Log($"Operation {zoneIndex} completed correctly - counted as correct");
 
                     Debug.Log($"Operation {zoneIndex} completed! Total completed: {completedOperationsCount}/{operationContainers.Length}");
 
@@ -337,13 +330,21 @@ public class GameManager : MonoBehaviour
                     audioSource.PlayOneShot(wrongSound);
                 }
 
-                // Bu iþlem tamamlanmamýþsa yanlýþ sayýsýný doðrudan artýr
+                // Bu iþlem tamamlanmamýþsa yanlýþ sayýsýný artýr
                 if (!operationCompleted[zoneIndex])
                 {
-                    wrongAnswersCount++;
-                    operationHadWrongAnswer[zoneIndex] = true;
-                    UpdateScoreUI(); // Her yanlýþta güncelle
-                    Debug.Log($"Wrong answer for operation {zoneIndex} - wrong count increased");
+                    // Eðer bu iþlem için daha önce yanlýþ cevap verilmemiþse yanlýþ sayýsýný artýr
+                    if (!operationHadWrongAnswer[zoneIndex])
+                    {
+                        wrongAnswersCount++;
+                        operationHadWrongAnswer[zoneIndex] = true;
+                        UpdateScoreUI();
+                        Debug.Log($"First wrong answer for operation {zoneIndex} - wrong count increased");
+                    }
+                    else
+                    {
+                        Debug.Log($"Already counted wrong answer for operation {zoneIndex}");
+                    }
                 }
             }
 
@@ -352,7 +353,7 @@ public class GameManager : MonoBehaviour
 
         Debug.LogWarning("Drop zone not recognized!");
         return false;
-    }
+    } 
 
     // Score UI'sýný güncelleme metodu
     private void UpdateScoreUI()
