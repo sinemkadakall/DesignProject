@@ -4,27 +4,23 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    //Bu kod sayesinde karakter yürüme,dönme, yer çekimine baðlý düþme
-    //gibi temel haraktelerini yapmasýný saðlar
-
+    [Header("Hareket Ayarlarý")]
     [SerializeField] float moveSpeed = 2f;
     [SerializeField] float rotationSpeed = 500f;
 
+    [Header("Zemin Kontrolü")]
     [SerializeField] float groundCheckRadius = 0.2f;
     [SerializeField] Vector3 gorundCheckOffset;
     [SerializeField] LayerMask groundLayer;
 
+    [Header("Kamera Ayarlarý")]
+    [SerializeField] bool useRelativeMovement = false; // Kameraya göre hareket etsin mi?
+
     bool isGrounded;
-
-    //Yerçekimi etkisi bu hýzdan kontrol edilir
     float ySpeed;
-
     Quaternion targetRotation;
-
     CameraController cameraController;
-
     Animator animator;
-
     CharacterController characterController;
 
     private void Awake()
@@ -33,25 +29,34 @@ public class PlayerController : MonoBehaviour
         animator = GetComponent<Animator>();
         characterController = GetComponent<CharacterController>();
     }
+
     private void Update()
     {
-
-        //Oyuncudan yatay ve dikey girdi alýyor.
+        // Oyuncudan yatay ve dikey girdi alýyor
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
 
-        //Hareket miktarýný hesaplamak için
+        // Hareket miktarýný hesaplamak için
         float moveAmount = Mathf.Clamp01(Mathf.Abs(h) + Mathf.Abs(v));
 
-        //Hareket girdisini normalize et
+        // Hareket girdisini normalize et
         var moveInput = (new Vector3(h, 0, v)).normalized;
 
-        //Kamera rotasyonuna göre hareket yönünü ayarla
-        var moveDir=cameraController.PlanarRotation * moveInput;
+        Vector3 moveDir;
 
-        //Zemin kontrolü
+        if (useRelativeMovement && cameraController != null)
+        {
+            // Kamera rotasyonuna göre hareket yönünü ayarla
+            moveDir = cameraController.PlanarRotation * moveInput;
+        }
+        else
+        {
+            // Dünya koordinatlarýna göre hareket (WASD = Kuzey/Güney/Doðu/Batý)
+            moveDir = moveInput;
+        }
+
+        // Zemin kontrolü
         GroundCheck();
-
         if (isGrounded)
         {
             ySpeed = -0.5f;
@@ -61,44 +66,34 @@ public class PlayerController : MonoBehaviour
             ySpeed += Physics.gravity.y * Time.deltaTime;
         }
 
-        //Hýzý hesaplamak için
+        // Hýzý hesaplamak için
         var velocity = moveDir * moveSpeed;
         velocity.y = ySpeed;
 
-        //Karakteri hesaplamak için
+        // Karakteri hareket ettir
         characterController.Move(velocity * Time.deltaTime);
 
         if (moveAmount > 0)
         {
-            //Karakterin yüzü hareket yönüne doðru yönelir
-            targetRotation= Quaternion.LookRotation(moveDir);
+            // Karakterin yüzü hareket yönüne doðru yönelir
+            targetRotation = Quaternion.LookRotation(moveDir);
         }
 
-        //Karakteri yavaþça hedef noktasýna döndürmek için
-        transform.rotation = Quaternion.RotateTowards( transform.rotation, targetRotation,rotationSpeed * Time.deltaTime);
+        // Karakteri yavaþça hedef noktasýna döndürmek için
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
 
-
-        animator.SetFloat("moveAmount",moveAmount,0.2f,Time.deltaTime);
-
+        animator.SetFloat("moveAmount", moveAmount, 0.2f, Time.deltaTime);
     }
-
 
     private void GroundCheck()
     {
-        isGrounded = Physics.CheckSphere(transform.TransformPoint(gorundCheckOffset),groundCheckRadius,groundLayer);
-
-
+        isGrounded = Physics.CheckSphere(transform.TransformPoint(gorundCheckOffset), groundCheckRadius, groundLayer);
     }
 
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = new Color(0,1,0.5f);
+        Gizmos.color = new Color(0, 1, 0.5f);
         Gizmos.DrawSphere(transform.TransformPoint(gorundCheckOffset), groundCheckRadius);
     }
-
-
-
-
-
 
 }

@@ -7,6 +7,8 @@ TagManager:
   - AnswerSlot
   - DropZone
   - Block
+  - Ground
+  - FallZone
   layers:
   - Default
   - TransparentFX
