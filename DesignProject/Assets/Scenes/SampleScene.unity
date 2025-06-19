@@ -9231,9 +9231,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3cf5251005bf10145b8ce8a198c95a45, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  apiUrl: https://admin-dashboard-git-main-hacerkilic01s-projects.vercel.app/api/game-result
+  apiUrl: https://webhook.site/70151d05-335f-46dc-a120-f516cd912e1e
   useLocalTest: 0
-  localTestUrl: https://admin-dashboard-git-main-hacerkilic01s-projects.vercel.app/api/game-result
+  localTestUrl: https://webhook.site/70151d05-335f-46dc-a120-f516cd912e1e
   connectionTimeout: 30
   maxRetryAttempts: 3
   retryDelay: 5
@@ -9247,10 +9247,6 @@ MonoBehaviour:
   showDebugLogs: 1
   gameScenes:
   - MathGame
-  - NewMaze
-  - PuzzleGame
-  - NewTower
-  - WhackAMole
 --- !u!4 &716492459
 Transform:
   m_ObjectHideFlags: 0
