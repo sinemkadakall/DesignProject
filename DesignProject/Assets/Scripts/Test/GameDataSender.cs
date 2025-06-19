@@ -10,9 +10,9 @@ using System.Linq;
 public class GameDataSender : MonoBehaviour
 {
     [Header("API Ayarları")]
-    public string apiUrl = "https://webhook.site/70151d05-335f-46dc-a120-f516cd912e1e";
+    public string apiUrl = "http://localhost:3000/api/game-result";
     public bool useLocalTest = true;
-    public string localTestUrl = "https://webhook.site/70151d05-335f-46dc-a120-f516cd912e1et";
+    public string localTestUrl = "http://localhost:3000/api/game-result";
 
     [Header("Bağlantı Ayarları")]
     public int connectionTimeout = 30;
@@ -188,7 +188,8 @@ public class GameDataSender : MonoBehaviour
 
         if (autoSendOnInterval && Time.time - sessionStartTime >= sendInterval)
         {
-            SendSessionData();
+
+            //SendSessionData();
         }
 
         // Test controls
@@ -319,7 +320,20 @@ public class GameDataSender : MonoBehaviour
         }
         currentSceneData = null;
     }
+    public void StartNewSession()
+    {
+        // Varsa sahne verisini tamamla
+        if (currentSceneData != null)
+        {
+            FinishCurrentScene();
+        }
 
+        // Yeni oturum başlat
+        InitializeSession();
+
+        if (showDebugLogs)
+            Debug.Log("🆕 Yeni oturum başlatıldı (manuel): " + currentSession.sessionId);
+    }
     IEnumerator FindDataProviderWithDelay(string sceneName)
     {
         yield return new WaitForSeconds(0.5f);
@@ -475,6 +489,16 @@ public class GameDataSender : MonoBehaviour
             UpdateCurrentSceneData();
         }
 
+        // HER GÖNDERİMDE YENİ SESSION ID OLUŞTUR
+        string originalSessionId = sessionData.sessionId;
+        sessionData.sessionId = System.Guid.NewGuid().ToString();
+
+        if (showDebugLogs)
+        {
+            Debug.Log($"🆔 Unique SessionId oluşturuldu: {sessionData.sessionId}");
+            Debug.Log($"   (Orijinal: {originalSessionId})");
+        }
+
         string jsonData = CreateApiCompatibleJson(sessionData);
 
         if (showDebugLogs)
@@ -508,7 +532,7 @@ public class GameDataSender : MonoBehaviour
             if (request.responseCode == 200 || request.responseCode == 201)
             {
                 if (showDebugLogs)
-                    Debug.Log("✅ Veri başarıyla gönderildi!");
+                    Debug.Log($"✅ Veri başarıyla gönderildi! SessionId: {sessionData.sessionId}");
                 callback(true);
             }
             else

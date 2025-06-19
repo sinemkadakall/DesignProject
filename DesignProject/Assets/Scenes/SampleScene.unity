@@ -9231,9 +9231,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3cf5251005bf10145b8ce8a198c95a45, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  apiUrl: https://webhook.site/70151d05-335f-46dc-a120-f516cd912e1e
+  apiUrl: http://localhost:3000/api/game-result
   useLocalTest: 0
-  localTestUrl: https://webhook.site/70151d05-335f-46dc-a120-f516cd912e1e
+  localTestUrl: http://localhost:3000/api/game-result
   connectionTimeout: 30
   maxRetryAttempts: 3
   retryDelay: 5
