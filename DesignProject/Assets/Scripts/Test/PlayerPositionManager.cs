@@ -16,14 +16,6 @@ public class PlayerPositionManager : MonoBehaviour
 
     void Start()
     {
-        // Oyun ilk kez baþlatýldýðýnda pozisyon verilerini temizle
-        if (!PlayerPrefs.HasKey("GameStarted"))
-        {
-            ClearPositionData();
-            PlayerPrefs.SetInt("GameStarted", 1);
-            PlayerPrefs.Save();
-        }
-
         LoadPlayerPosition();
     }
 
@@ -42,7 +34,6 @@ public class PlayerPositionManager : MonoBehaviour
         // Karakteri baþlangýç pozisyonuna getir
         transform.position = defaultStartPosition;
         transform.rotation = defaultStartRotation;
-
         Debug.Log("Position data cleared and reset to default: " + defaultStartPosition);
     }
 
@@ -66,7 +57,7 @@ public class PlayerPositionManager : MonoBehaviour
     public void LoadPlayerPosition()
     {
         // Mini oyundan dönüp dönmediðini kontrol et
-        if (PlayerPrefs.GetString("ReturnFromMiniGame") == "true")
+        if (PlayerPrefs.GetString("ReturnFromMiniGame", "false") == "true")
         {
             if (PlayerPrefs.HasKey("PlayerPosX"))
             {
@@ -75,6 +66,7 @@ public class PlayerPositionManager : MonoBehaviour
                     PlayerPrefs.GetFloat("PlayerPosY"),
                     PlayerPrefs.GetFloat("PlayerPosZ")
                 );
+
                 Quaternion rotation = new Quaternion(
                     PlayerPrefs.GetFloat("PlayerRotX"),
                     PlayerPrefs.GetFloat("PlayerRotY"),
@@ -84,19 +76,29 @@ public class PlayerPositionManager : MonoBehaviour
 
                 transform.position = position;
                 transform.rotation = rotation;
-
-                Debug.Log("Player position loaded: " + position);
+                Debug.Log("Player position loaded from mini game return: " + position);
             }
+
             // Flag'i temizle
             PlayerPrefs.SetString("ReturnFromMiniGame", "false");
+            PlayerPrefs.Save();
         }
         else
         {
-            // Mini oyundan dönmüyorsa baþlangýç pozisyonunu kullan
+            // Mini oyundan dönmüyorsa her zaman baþlangýç pozisyonunu kullan
             transform.position = defaultStartPosition;
             transform.rotation = defaultStartRotation;
             Debug.Log("Player reset to start position: " + defaultStartPosition);
         }
+    }
+
+    // Mini oyuna geçmeden önce pozisyonu kaydetmek için çaðýrýn
+    public void SavePositionForMiniGame()
+    {
+        SavePlayerPosition();
+        PlayerPrefs.SetString("ReturnFromMiniGame", "true");
+        PlayerPrefs.Save();
+        Debug.Log("Position saved for mini game transition");
     }
 
     // Oyunu tamamen yeniden baþlatmak için bu fonksiyonu çaðýrýn

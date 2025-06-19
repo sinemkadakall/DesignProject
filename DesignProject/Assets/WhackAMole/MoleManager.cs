@@ -13,16 +13,13 @@ public class MoleManager : MonoBehaviour, IGameDataProvider
     [SerializeField] private TMPro.TextMeshProUGUI timeText;
     [SerializeField] private TMPro.TextMeshProUGUI scoreText;
 
-
     private float startingTime = 30f;
 
-    
     private float timeRemaining;
     private HashSet<Mole> currentMoles = new HashSet<Mole>();
     private int score;
     private bool playing = false;
 
- 
     private float gameStartTime;
     private int totalHits = 0;        // Toplam vuruþ sayýsý (doðru cevap)
     private int totalMisses = 0;      // Toplam kaçýrma sayýsý (yanlýþ cevap)
@@ -30,10 +27,8 @@ public class MoleManager : MonoBehaviour, IGameDataProvider
     private int gamesPlayed = 0;      // Oynanan oyun sayýsý
     private bool gameFinished = false;
 
-   
     public void StartGame()
     {
-     
         playButton.SetActive(false);
         outOfTimeText.SetActive(false);
         bombText.SetActive(false);
@@ -45,10 +40,8 @@ public class MoleManager : MonoBehaviour, IGameDataProvider
             moles[i].SetIndex(i);
         }
 
-     
         currentMoles.Clear();
 
-      
         timeRemaining = startingTime;
         score = 0;
         scoreText.text = "0";
@@ -96,7 +89,6 @@ public class MoleManager : MonoBehaviour, IGameDataProvider
         }
     }
 
-    // Update is called once per frame
     void Update()
     {
         if (playing)
@@ -141,35 +133,49 @@ public class MoleManager : MonoBehaviour, IGameDataProvider
         Debug.Log($"Köstebek vuruldu! Skor: {score}, Toplam vuruþ: {totalHits}");
     }
 
+    // Bu metot sadece köstebek kaçýrýldýðýnda çaðrýlmalý
     public void Missed(int moleIndex, bool isMole)
     {
         if (isMole)
         {
-            // Decrease time by a little bit.
+            // Köstebek kaçýrýldý (süre doldu, vurulmadý)
             timeRemaining -= 2;
-            totalMisses++; // Kaçýrma sayýsýný artýr
+            totalMisses++;
             Debug.Log($"Köstebek kaçýrýldý! Toplam kaçýrma: {totalMisses}");
         }
-        else
-        {
-            // Bomba vuruldu
-            bombHits++;
-            Debug.Log($"Bomba vuruldu! Toplam bomba: {bombHits}");
-            GameOver(1); // Bomba patladýðýnda oyunu bitir
-            return;
-        }
+        // Bomba için burada bir þey yapmýyoruz - HitBomb metodu kullanýlacak
 
         // Remove from active moles.
         currentMoles.Remove(moles[moleIndex]);
     }
 
-    // Bomba vurulduðunda çaðrýlan metot (eðer yoksa ekleyin)
+    // Bomba vurulduðunda çaðrýlan metot - sadece bomba gerçekten vurulduðunda
     public void HitBomb(int moleIndex)
     {
         bombHits++;
         currentMoles.Remove(moles[moleIndex]);
         Debug.Log($"Bomba vuruldu! Toplam bomba: {bombHits}");
-        GameOver(1);
+        GameOver(1); // Bomba patladýðýnda oyunu bitir
+    }
+
+    // Köstebek vurulduðunda çaðrýlan metot - sadece köstebek vurulduðunda
+    public void HitMole(int moleIndex)
+    {
+        AddScore(moleIndex);
+    }
+
+    // Zaman dolduðunda veya köstebek kaçýrýldýðýnda çaðrýlan metot
+    public void MoleMissed(int moleIndex)
+    {
+        Missed(moleIndex, true);
+    }
+
+    // Bomba zaman dolduðunda çaðrýlan metot (bomba patlamamalý, sadece kaybolmalý)
+    public void BombMissed(int moleIndex)
+    {
+        // Bomba kaçýrýldý (zaman doldu) - bu iyi bir þey, patlamamalý
+        currentMoles.Remove(moles[moleIndex]);
+        Debug.Log($"Bomba kaçýrýldý (iyi!) - Ýndeks: {moleIndex}");
     }
 
     // IGameDataProvider implementasyonu
@@ -196,7 +202,6 @@ public class MoleManager : MonoBehaviour, IGameDataProvider
         }
         return 0f;
     }
-
 
     public int GetTotalHits()
     {

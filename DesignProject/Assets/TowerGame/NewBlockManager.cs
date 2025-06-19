@@ -1,22 +1,23 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement; // Scene yönetimi için eklendi
+using UnityEngine.SceneManagement;
 
 public class NewBlockManager : MonoBehaviour
 {
     [SerializeField] private GameObject blockPrefab;
     [SerializeField] private Transform blockHolder;
     [SerializeField] private TMPro.TextMeshProUGUI livesText;
-    [SerializeField] private GameObject gameOverPanel; // Game Over UI'si için (opsiyonel)
+    [SerializeField] private TMPro.TextMeshProUGUI stackCountText; // Yeni: Stack sayÄ±sÄ±nÄ± gÃ¶stermek iÃ§in
+    [SerializeField] private GameObject gameOverPanel;
 
     private GameObject currentBlock = null;
     private Rigidbody currentRigidbody;
     private Renderer currentBlockRenderer;
-    private BlockFallDetector currentBlockDetector; // Eklendi
+    private BlockFallDetector currentBlockDetector;
 
-    // World Space Canvas koordinatlarý için ayarlandý
+    // World Space Canvas koordinatlarÄ± iÃ§in ayarlandÄ±
     private Vector3 blockStartPosition = new Vector3(0f, 100f, 0f);
     private float blockSpeed = 50f;
     private float gravityScale = 2f;
@@ -24,17 +25,22 @@ public class NewBlockManager : MonoBehaviour
     private int blockDirection = 1;
     private float xLimit = 100f;
     private float timeBetweenRounds = 1f;
-    private float restartDelay = 2f; // Yeniden baþlama gecikmesi
+    private float restartDelay = 2f;
 
-    // Variables to handle the game state.
+    // Game state variables
     private int startingLives = 3;
     private int livesRemaining;
     private bool playing = true;
-    private bool gameOver = false; // Eklendi
+    private bool gameOver = false;
+
+    // Stack tracking variables
+    private int currentStackCount = 0;
+    private const int MAX_STACK_HEIGHT = 7; // 8 blok Ã¼st Ã¼ste gelince game over
+    private List<GameObject> stackedBlocks = new List<GameObject>(); // Stack'teki bloklarÄ± takip et
 
     void Start()
     {
-        // Can sayýsýný PlayerPrefs'ten yükle (eðer varsa)
+        // Can sayÄ±sÄ±nÄ± PlayerPrefs'ten yÃ¼kle (eÄŸer varsa)
         if (PlayerPrefs.HasKey("CurrentLives"))
         {
             livesRemaining = PlayerPrefs.GetInt("CurrentLives");
@@ -44,16 +50,19 @@ public class NewBlockManager : MonoBehaviour
             livesRemaining = startingLives;
         }
 
-        UpdateLivesUI();
+        // Stack sayÄ±sÄ±nÄ± sÄ±fÄ±rla (yeni oyun baÅŸlarken)
+        currentStackCount = 0;
+        stackedBlocks.Clear();
 
-        Debug.Log($"Oyun baþladý - Can: {livesRemaining}");
+        UpdateUI();
+        Debug.Log($"Oyun baÅŸladÄ± - Can: {livesRemaining}, Stack: {currentStackCount}");
 
         SpawnNewBlock();
     }
 
     private void SpawnNewBlock()
     {
-        if (gameOver) return; // Game over durumunda yeni blok yaratma
+        if (gameOver) return;
 
         Debug.Log("SpawnNewBlock called");
 
@@ -73,7 +82,7 @@ public class NewBlockManager : MonoBehaviour
         currentBlock = Instantiate(blockPrefab, blockHolder);
         currentBlock.transform.localPosition = blockStartPosition;
 
-        // BlockFallDetector ekle (eðer prefab'da yoksa)
+        // BlockFallDetector ekle (eÄŸer prefab'da yoksa)
         currentBlockDetector = currentBlock.GetComponent<BlockFallDetector>();
         if (currentBlockDetector == null)
         {
@@ -82,7 +91,7 @@ public class NewBlockManager : MonoBehaviour
 
         Debug.Log($"Block created at position: {currentBlock.transform.localPosition}");
 
-        // Renderer componentini al ve renk deðiþtir
+        // Renderer componentini al ve renk deÄŸiÅŸtir
         currentBlockRenderer = currentBlock.GetComponent<Renderer>();
         if (currentBlockRenderer != null)
         {
@@ -98,7 +107,7 @@ public class NewBlockManager : MonoBehaviour
 
         currentRigidbody = currentBlock.GetComponent<Rigidbody>();
 
-        // Rigidbody'yi baþlangýçta devre dýþý býrak
+        // Rigidbody'yi baÅŸlangÄ±Ã§ta devre dÄ±ÅŸÄ± bÄ±rak
         if (currentRigidbody != null)
         {
             currentRigidbody.isKinematic = true;
@@ -126,7 +135,6 @@ public class NewBlockManager : MonoBehaviour
 
         // Increase the block speed each time to make it harder.
         blockSpeed += blockSpeedIncrement;
-
         Debug.Log($"New block speed: {blockSpeed}");
     }
 
@@ -164,11 +172,10 @@ public class NewBlockManager : MonoBehaviour
             }
         }
 
-        // Manual restart key (test için)
+        // Manual restart key (test iÃ§in)
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            PlayerPrefs.DeleteKey("CurrentLives");
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            RestartCompleteGame();
         }
     }
 
@@ -176,7 +183,7 @@ public class NewBlockManager : MonoBehaviour
     {
         if (currentBlock == null) return;
 
-        // Block fall detector'ý bilgilendir
+        // Block fall detector'Ä± bilgilendir
         if (currentBlockDetector != null)
         {
             currentBlockDetector.OnBlockDropped();
@@ -194,8 +201,62 @@ public class NewBlockManager : MonoBehaviour
             currentRigidbody.AddForce(Vector3.down * gravityScale, ForceMode.Impulse);
         }
 
+        // Blok dÃ¼ÅŸtÃ¼ÄŸÃ¼nde stack kontrolÃ¼ yap (1 saniye sonra)
+        StartCoroutine(CheckBlockLanding(droppedBlock));
+
         // Spawn the next block.
         StartCoroutine(DelayedSpawn());
+    }
+
+    // Blok yere indikten sonra stack durumunu kontrol et
+    private IEnumerator CheckBlockLanding(GameObject block)
+    {
+        // BloÄŸun yere inmesi iÃ§in bekle
+        yield return new WaitForSeconds(1.5f);
+
+        if (block != null && !gameOver)
+        {
+            // Blok hala varsa ve yere inmiÅŸ ise stack'e ekle
+            Rigidbody rb = block.GetComponent<Rigidbody>();
+            if (rb != null && rb.velocity.magnitude < 0.1f) // Blok durmuÅŸ
+            {
+                // Stack'e ekle
+                AddBlockToStack(block);
+
+                // Stack yÃ¼ksekliÄŸini kontrol et
+                CheckStackHeight();
+            }
+        }
+    }
+
+    // Bloku stack'e ekle
+    private void AddBlockToStack(GameObject block)
+    {
+        if (!stackedBlocks.Contains(block))
+        {
+            stackedBlocks.Add(block);
+            currentStackCount = stackedBlocks.Count;
+
+            Debug.Log($"Blok stack'e eklendi. Mevcut stack: {currentStackCount}");
+            UpdateUI();
+        }
+    }
+
+    // Stack yÃ¼ksekliÄŸini kontrol et
+    private void CheckStackHeight()
+    {
+        // Null bloklarÄ± temizle
+        stackedBlocks.RemoveAll(block => block == null);
+        currentStackCount = stackedBlocks.Count;
+
+        Debug.Log($"Stack kontrolÃ¼: {currentStackCount}/{MAX_STACK_HEIGHT}");
+
+        // 8 blok Ã¼st Ã¼ste geldi mi?
+        if (currentStackCount >= MAX_STACK_HEIGHT)
+        {
+            Debug.Log("Kule TamamlandÄ±!");
+            TriggerGameOver("Kule TamamlandÄ±!");
+        }
     }
 
     // Called from BlockFallDetector whenever it detects a block has fallen off.
@@ -203,171 +264,108 @@ public class NewBlockManager : MonoBehaviour
     {
         if (gameOver) return;
 
-        // Can sayýsýný azalt
+        // Can sayÄ±sÄ±nÄ± azalt
         livesRemaining--;
-        Debug.Log($"Blok düþtü! Can azaldý: {livesRemaining}");
+        Debug.Log($"Blok dÃ¼ÅŸtÃ¼! Can azaldÄ±: {livesRemaining}");
 
-        // Can sayýsýný kaydet
+        // Can sayÄ±sÄ±nÄ± kaydet
         PlayerPrefs.SetInt("CurrentLives", livesRemaining);
         PlayerPrefs.Save();
 
-        // Can kontrolü
+        UpdateUI();
+
+        // Can kontrolÃ¼
         if (livesRemaining <= 0)
         {
-            // Canlar bitti - Game Over
-            Debug.Log("GAME OVER!");
-            PlayerPrefs.DeleteKey("CurrentLives"); // Can sayýsýný temizle
-            PlayerPrefs.Save();
-
-            // Game Over ekraný göster veya mesaj ver
-            if (livesText != null)
-            {
-                livesText.text = "GAME OVER!";
-            }
-
-            gameOver = true;
-            playing = false;
-
-            // 3 saniye sonra yeni oyun baþlat
-            Invoke(nameof(StartNewGame), 3f);
+            TriggerGameOver("CANLAR BÄ°TTÄ°!");
         }
         else
         {
-            // Hala can var - Oyunu yeniden baþlat
-            Debug.Log("Oyun yeniden baþlatýlýyor...");
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            // Hala can var - Oyuna devam et (sahneyi yeniden yÃ¼kleme!)
+            Debug.Log("Can azaldÄ± ama oyun devam ediyor...");
         }
     }
 
-    // Yeni oyun baþlat (3 canla)
-    private void StartNewGame()
+    // Game Over'Ä± tetikle
+    private void TriggerGameOver(string reason)
     {
+        Debug.Log($"GAME OVER! Sebep: {reason}");
+
+        gameOver = true;
+        playing = false;
+
+        // Can sayÄ±sÄ±nÄ± temizle
         PlayerPrefs.DeleteKey("CurrentLives");
         PlayerPrefs.Save();
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-    }
 
-    private void UpdateLivesUI()
-    {
+        // UI'Ä± gÃ¼ncelle
         if (livesText != null)
         {
-            livesText.text = $"Can: {livesRemaining}";
+            livesText.text = $"GAME OVER! {reason}";
         }
-    }
 
-    private void GameOver()
-    {
-        playing = false;
-        gameOver = true;
-
-        Debug.Log("GAME OVER! Tüm canlar bitti!");
-
-        // Can sayýsýný sýfýrla
-        PlayerPrefs.DeleteKey("CurrentLives");
-        PlayerPrefs.Save();
-
-        // Game Over UI'sini göster (eðer varsa)
+        // Game Over panelini gÃ¶ster (eÄŸer varsa)
         if (gameOverPanel != null)
         {
             gameOverPanel.SetActive(true);
         }
 
-        // Otomatik yeniden baþlatma (tüm canlarla)
+        // 3 saniye sonra yeni oyun baÅŸlat
         StartCoroutine(AutoRestart());
     }
 
     private IEnumerator AutoRestart()
     {
-        yield return new WaitForSeconds(restartDelay);
-
-        // Yeni oyun baþlat (tüm canlarla)
-        livesRemaining = startingLives;
-        PlayerPrefs.DeleteKey("CurrentLives");
-        RestartGame();
+        yield return new WaitForSeconds(3f);
+        RestartCompleteGame();
     }
 
-    public void RestartGame()
+    // Tamamen yeni oyun baÅŸlat
+    private void RestartCompleteGame()
     {
-        Debug.Log("Oyun yeniden baþlatýlýyor...");
+        Debug.Log("Tamamen yeni oyun baÅŸlatÄ±lÄ±yor...");
 
-        // Can sayýsýný PlayerPrefs ile kaydet (sahne yeniden yüklendiðinde korunsun)
-        PlayerPrefs.SetInt("CurrentLives", livesRemaining);
+        PlayerPrefs.DeleteKey("CurrentLives");
         PlayerPrefs.Save();
 
-        // Farklý restart yöntemleri dene
-        try
-        {
-            // Yöntem 1: Mevcut sahneyi yeniden yükle
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError("Scene reload hatasý: " + e.Message);
-
-            // Yöntem 2: Manuel restart
-            ManualRestart();
-        }
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
-    // Manual restart - tüm deðiþkenleri sýfýrla
-    private void ManualRestart()
+    // UI'larÄ± gÃ¼ncelle
+    private void UpdateUI()
     {
-        Debug.Log("Manuel restart baþlatýlýyor...");
-
-        // Tüm bloklarý yok et
-        DestroyAllBlocks();
-
-        // Deðiþkenleri sýfýrla
-        livesRemaining = startingLives;
-        playing = true;
-        gameOver = false;
-        blockSpeed = 50f; // Baþlangýç hýzýna döndür
-        blockDirection = 1;
-
-        // UI'ý güncelle
-        UpdateLivesUI();
-
-        // Game over panelini gizle
-        if (gameOverPanel != null)
+        if (livesText != null)
         {
-            gameOverPanel.SetActive(false);
+            livesText.text = $"Can: {livesRemaining}";
         }
 
-        // Yeni blok spawn et
-        SpawnNewBlock();
-
-        Debug.Log("Manuel restart tamamlandý!");
-    }
-
-    // Tüm bloklarý yok et
-    private void DestroyAllBlocks()
-    {
-        // BlockHolder altýndaki tüm bloklarý yok et
-        if (blockHolder != null)
+        if (stackCountText != null)
         {
-            foreach (Transform child in blockHolder)
-            {
-                Destroy(child.gameObject);
-            }
+           // stackCountText.text = $"Kule:";
         }
-
-        // Alternatif: Tag ile bul ve yok et
-        GameObject[] allBlocks = GameObject.FindGameObjectsWithTag("Block");
-        foreach (GameObject block in allBlocks)
-        {
-            Destroy(block);
-        }
-
-        // Current block referansýný temizle
-        currentBlock = null;
-        currentRigidbody = null;
-        currentBlockRenderer = null;
-        currentBlockDetector = null;
     }
 
     // Public method to check if game is over (other scripts can use this)
     public bool IsGameOver()
     {
         return gameOver;
+    }
+
+    // Stack sayÄ±sÄ±nÄ± dÄ±ÅŸarÄ±dan almak iÃ§in
+    public int GetCurrentStackCount()
+    {
+        return currentStackCount;
+    }
+
+    // Manuel olarak stack'ten blok Ã§Ä±kar (blok dÃ¼ÅŸtÃ¼ÄŸÃ¼nde)
+    public void RemoveBlockFromStack(GameObject block)
+    {
+        if (stackedBlocks.Contains(block))
+        {
+            stackedBlocks.Remove(block);
+            currentStackCount = stackedBlocks.Count;
+            Debug.Log($"Blok stack'ten Ã§Ä±karÄ±ldÄ±. Mevcut kule: {currentStackCount}");
+            UpdateUI();
+        }
     }
 }

@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour, IGameDataProvider
 {
@@ -54,6 +55,11 @@ public class GameManager : MonoBehaviour, IGameDataProvider
     private float gameStartTime;
     private int totalScore = 0;
     private int baseScorePerCorrect = 10; // Her doğru cevap için temel puan
+
+    void Awake()
+    {
+        gameObject.name = SceneManager.GetActiveScene().name;
+    }
 
     void Start()
     {
@@ -567,4 +573,6 @@ public class GameManager : MonoBehaviour, IGameDataProvider
             Debug.Log("🎮 MathGame sahne sonu - final stats gönderildi");
         }
     }
+
+
 }

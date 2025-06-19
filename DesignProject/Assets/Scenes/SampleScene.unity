@@ -9232,7 +9232,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   apiUrl: https://admin-dashboard-git-main-hacerkilic01s-projects.vercel.app/api/game-result
-  useLocalTest: 1
+  useLocalTest: 0
   localTestUrl: https://admin-dashboard-git-main-hacerkilic01s-projects.vercel.app/api/game-result
   connectionTimeout: 30
   maxRetryAttempts: 3
