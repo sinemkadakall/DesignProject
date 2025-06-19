@@ -1,10 +1,10 @@
+ï»¿using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
 using System.Collections;
 using System.Collections.Generic;
-using TMPro;
-using UnityEngine;
-using UnityEngine.UI;
 
-public class GameManager : MonoBehaviour
+public class GameManager : MonoBehaviour, IGameDataProvider
 {
     [System.Serializable]
     public class NumberData
@@ -14,41 +14,46 @@ public class GameManager : MonoBehaviour
     }
 
     [Header("UI References")]
-    public NumberData[] numberSprites;  // 0-9 arası sayı spriteları
-    public Sprite[] operatorSprites;   // +, -, *, / işlem spriteları
-    public GameObject[] operationContainers; // İşlem alanları (Num1, Operator, Num2 için)
-    public Transform[] dropZones;       // Sonuç bırakma alanları
-    public Transform numberParent;      // Alt kısımdaki sayılar için parent
-    public GameObject numberPrefab;     // Sürüklenebilir sayı prefabı
+    public NumberData[] numberSprites;  // 0-9 arasÄ± sayÄ± spritelarÄ±
+    public Sprite[] operatorSprites;   // +, -, *, / iÅŸlem spritelarÄ±
+    public GameObject[] operationContainers; // Ä°ÅŸlem alanlarÄ± (Num1, Operator, Num2 iÃ§in)
+    public Transform[] dropZones;       // SonuÃ§ bÄ±rakma alanlarÄ±
+    public Transform numberParent;      // Alt kÄ±sÄ±mdaki sayÄ±lar iÃ§in parent
+    public GameObject numberPrefab;     // SÃ¼rÃ¼klenebilir sayÄ± prefabÄ±
 
     [Header("Score UI")]
-    public TextMeshProUGUI correctCountText;  // Doğru sayısını gösteren text
-    public TextMeshProUGUI wrongCountText;    // Yanlış sayısını gösteren text
+    public TextMeshProUGUI correctCountText;  // DoÄŸru sayÄ±sÄ±nÄ± gÃ¶steren text
+    public TextMeshProUGUI wrongCountText;    // YanlÄ±ÅŸ sayÄ±sÄ±nÄ± gÃ¶steren text
 
     [Header("Game Settings")]
-    public int totalNumbers = 10;       // Alt kısımda gösterilecek toplam sayı
-    public int maxNumber = 9;           // Rastgele sayılar için maksimum değer
-    public float newRoundDelay = 2f;    // Yeni round için bekleme süresi
+    public int totalNumbers = 10;       // Alt kÄ±sÄ±mda gÃ¶sterilecek toplam sayÄ±
+    public int maxNumber = 9;           // Rastgele sayÄ±lar iÃ§in maksimum deÄŸer
+    public float newRoundDelay = 2f;    // Yeni round iÃ§in bekleme sÃ¼resi
 
     [Header("Audio")]
     public AudioSource audioSource; // Inspector'dan atanacak
-    public AudioClip correctSound; // Doğru cevap ses efekti
-    public AudioClip wrongSound;   // Yanlış cevap ses efekti
+    public AudioClip correctSound; // DoÄŸru cevap ses efekti
+    public AudioClip wrongSound;   // YanlÄ±ÅŸ cevap ses efekti
 
     private int[] operationResults;
-    private int[] firstNumbers;   // İlk sayıları takip etmek için
-    private int[] secondNumbers;  // İkinci sayıları takip etmek için
-    private int[] operationTypes; // İşlem türlerini takip etmek için
+    private int[] firstNumbers;   // Ä°lk sayÄ±larÄ± takip etmek iÃ§in
+    private int[] secondNumbers;  // Ä°kinci sayÄ±larÄ± takip etmek iÃ§in
+    private int[] operationTypes; // Ä°ÅŸlem tÃ¼rlerini takip etmek iÃ§in
     private List<int> availableNumbers = new List<int>();
 
-    // Yeni eklenen değişkenler
-    private bool[] operationCompleted; // Hangi işlemlerin tamamlandığını takip eder
-    private int completedOperationsCount = 0; // Tamamlanan işlem sayısı
+    // Yeni eklenen deÄŸiÅŸkenler
+    private bool[] operationCompleted; // Hangi iÅŸlemlerin tamamlandÄ±ÄŸÄ±nÄ± takip eder
+    private int completedOperationsCount = 0; // Tamamlanan iÅŸlem sayÄ±sÄ±
 
-    // Score tracking değişkenleri
+    // Score tracking deÄŸiÅŸkenleri
     private int correctAnswersCount = 0;
     private int wrongAnswersCount = 0;
-    private bool[] operationHadWrongAnswer; // Her işlem için yanlış cevap verilip verilmediğini takip eder
+    private bool[] operationHadWrongAnswer; // Her iÅŸlem iÃ§in yanlÄ±ÅŸ cevap verilip verilmediÄŸini takip eder
+
+    // API entegrasyonu iÃ§in eklenen deÄŸiÅŸkenler
+    private float gameStartTime;
+    private int totalScore = 0;
+    private int baseScorePerCorrect = 10; // Her doÄŸru cevap iÃ§in temel puan
 
     void Start()
     {
@@ -56,7 +61,17 @@ public class GameManager : MonoBehaviour
         {
             audioSource = gameObject.AddComponent<AudioSource>();
         }
+
+        // Oyun baÅŸlangÄ±Ã§ zamanÄ±nÄ± kaydet
+        gameStartTime = Time.time;
+
         InitializeGame();
+
+        // GameDataSender'a bu sahnenin baÅŸladÄ±ÄŸÄ±nÄ± bildir
+        if (GameDataSender.Instance != null)
+        {
+            Debug.Log("ğŸ® MathGame baÅŸlatÄ±ldÄ±, GameDataSender ile baÄŸlantÄ± kuruldu");
+        }
     }
 
     void InitializeGame()
@@ -99,7 +114,7 @@ public class GameManager : MonoBehaviour
 
                 GenerateValidNumbers(i, operationType);
 
-                // Eğer sonuç daha önce kullanılmamışsa, işlemi kabul et
+                // EÄŸer sonuÃ§ daha Ã¶nce kullanÄ±lmamÄ±ÅŸsa, iÅŸlemi kabul et
                 if (!usedResults.Contains(operationResults[i]))
                 {
                     usedResults.Add(operationResults[i]);
@@ -122,12 +137,12 @@ public class GameManager : MonoBehaviour
                 attempts++;
             }
 
-            // Eğer geçerli bir işlem bulunamazsa, önceki işlemleri sıfırla ve baştan başla
+            // EÄŸer geÃ§erli bir iÅŸlem bulunamazsa, Ã¶nceki iÅŸlemleri sÄ±fÄ±rla ve baÅŸtan baÅŸla
             if (!foundValidOperation)
             {
-                Debug.Log("Yeterli benzersiz sonuç bulunamadı, işlemler yeniden oluşturuluyor...");
+                Debug.Log("Yeterli benzersiz sonuÃ§ bulunamadÄ±, iÅŸlemler yeniden oluÅŸturuluyor...");
                 usedResults.Clear();
-                i = -1; // Döngü i'yi arttıracağı için -1'den başlıyoruz
+                i = -1; // DÃ¶ngÃ¼ i'yi arttÄ±racaÄŸÄ± iÃ§in -1'den baÅŸlÄ±yoruz
                 continue;
             }
         }
@@ -140,13 +155,13 @@ public class GameManager : MonoBehaviour
             case 0: // Toplama
                 do
                 {
-                    firstNumbers[index] = Random.Range(0, 6);  // Daha küçük sayılarla başla
+                    firstNumbers[index] = Random.Range(0, 6);  // Daha kÃ¼Ã§Ã¼k sayÄ±larla baÅŸla
                     secondNumbers[index] = Random.Range(0, 6);
                 } while (firstNumbers[index] + secondNumbers[index] > 9);
                 operationResults[index] = firstNumbers[index] + secondNumbers[index];
                 break;
 
-            case 1: // Çıkarma
+            case 1: // Ã‡Ä±karma
                 do
                 {
                     firstNumbers[index] = Random.Range(1, 10);
@@ -155,7 +170,7 @@ public class GameManager : MonoBehaviour
                 operationResults[index] = firstNumbers[index] - secondNumbers[index];
                 break;
 
-            case 2: // Çarpma
+            case 2: // Ã‡arpma
                 do
                 {
                     firstNumbers[index] = Random.Range(0, 4);
@@ -164,7 +179,7 @@ public class GameManager : MonoBehaviour
                 operationResults[index] = firstNumbers[index] * secondNumbers[index];
                 break;
 
-            case 3: // Bölme
+            case 3: // BÃ¶lme
                 do
                 {
                     secondNumbers[index] = Random.Range(1, 4);
@@ -181,8 +196,8 @@ public class GameManager : MonoBehaviour
         {
             case 0: return "+";
             case 1: return "-";
-            case 2: return "×";
-            case 3: return "÷";
+            case 2: return "Ã—";
+            case 3: return "Ã·";
             default: return "?";
         }
     }
@@ -192,7 +207,7 @@ public class GameManager : MonoBehaviour
         ClearExistingNumbers();
         availableNumbers.Clear();
 
-        // İşlem sonuçlarını ekle
+        // Ä°ÅŸlem sonuÃ§larÄ±nÄ± ekle
         foreach (int result in operationResults)
         {
             if (result >= 0 && result <= 9)
@@ -201,7 +216,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // Kalan boşlukları doldur
+        // Kalan boÅŸluklarÄ± doldur
         while (availableNumbers.Count < totalNumbers)
         {
             int randomNum = Random.Range(0, 10);
@@ -213,11 +228,11 @@ public class GameManager : MonoBehaviour
 
         ShuffleList(availableNumbers);
 
-        // Sayıları oluşturmadan önce bir frame bekle
+        // SayÄ±larÄ± oluÅŸturmadan Ã¶nce bir frame bekle
         StartCoroutine(CreateNumbersWithDelay());
     }
 
-    // Sayıları gecikmeli oluşturan coroutine
+    // SayÄ±larÄ± gecikmeli oluÅŸturan coroutine
     IEnumerator CreateNumbersWithDelay()
     {
         yield return null; // Bir frame bekle
@@ -245,7 +260,7 @@ public class GameManager : MonoBehaviour
 
     void ClearExistingNumbers()
     {
-        // Mevcut tüm sayı objelerini temizle
+        // Mevcut tÃ¼m sayÄ± objelerini temizle
         List<Transform> childrenToDestroy = new List<Transform>();
 
         foreach (Transform child in numberParent)
@@ -293,29 +308,38 @@ public class GameManager : MonoBehaviour
 
             if (isCorrect)
             {
-                // Doğru cevap ses efektini çal
+                // DoÄŸru cevap ses efektini Ã§al
                 if (correctSound != null)
                 {
                     audioSource.PlayOneShot(correctSound);
                 }
 
-                // Bu işlemi tamamlandı olarak işaretle
+                // Bu iÅŸlemi tamamlandÄ± olarak iÅŸaretle
                 if (!operationCompleted[zoneIndex])
                 {
                     operationCompleted[zoneIndex] = true;
                     completedOperationsCount++;
 
-                    // Doğru cevap verildiğinde sadece doğru sayısını artır
-                    // Daha önce yanlış yapılmış olsa bile, doğru tamamlandığında sadece doğru sayar
+                    // Her doÄŸru cevap iÃ§in doÄŸru sayÄ±sÄ±nÄ± artÄ±r
                     correctAnswersCount++;
+
+                    // Puan hesapla (zorluÄŸa gÃ¶re bonus puan)
+                    int earnedPoints = CalculateScore(zoneIndex);
+                    totalScore += earnedPoints;
 
                     UpdateScoreUI();
 
-                    Debug.Log($"Operation {zoneIndex} completed correctly - counted as correct");
+                    // GameDataSender'a bildir
+                    if (GameDataSender.Instance != null)
+                    {
+                        GameDataSender.Instance.AddCorrectAnswer(1);
+                        GameDataSender.Instance.AddScore(earnedPoints);
+                    }
 
+                    Debug.Log($"âœ… Operation {zoneIndex} completed correctly - earned {earnedPoints} points");
                     Debug.Log($"Operation {zoneIndex} completed! Total completed: {completedOperationsCount}/{operationContainers.Length}");
 
-                    // Tüm işlemler tamamlandıysa yeni round başlat
+                    // TÃ¼m iÅŸlemler tamamlandÄ±ysa yeni round baÅŸlat
                     if (completedOperationsCount >= operationContainers.Length)
                     {
                         StartCoroutine(StartNewRound());
@@ -324,27 +348,25 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                // Yanlış cevap
+                // YanlÄ±ÅŸ cevap ses efektini Ã§al
                 if (wrongSound != null)
                 {
                     audioSource.PlayOneShot(wrongSound);
                 }
 
-                // Bu işlem tamamlanmamışsa yanlış sayısını artır
+                // Bu iÅŸlem tamamlanmamÄ±ÅŸsa her yanlÄ±ÅŸ cevap iÃ§in yanlÄ±ÅŸ sayÄ±sÄ±nÄ± artÄ±r
                 if (!operationCompleted[zoneIndex])
                 {
-                    // Eğer bu işlem için daha önce yanlış cevap verilmemişse yanlış sayısını artır
-                    if (!operationHadWrongAnswer[zoneIndex])
+                    wrongAnswersCount++;
+                    UpdateScoreUI();
+
+                    // GameDataSender'a bildir
+                    if (GameDataSender.Instance != null)
                     {
-                        wrongAnswersCount++;
-                        operationHadWrongAnswer[zoneIndex] = true;
-                        UpdateScoreUI();
-                        Debug.Log($"First wrong answer for operation {zoneIndex} - wrong count increased");
+                        GameDataSender.Instance.AddWrongAnswer(1);
                     }
-                    else
-                    {
-                        Debug.Log($"Already counted wrong answer for operation {zoneIndex}");
-                    }
+
+                    Debug.Log($"âŒ Wrong answer for operation {zoneIndex} - wrong count increased to {wrongAnswersCount}");
                 }
             }
 
@@ -353,9 +375,30 @@ public class GameManager : MonoBehaviour
 
         Debug.LogWarning("Drop zone not recognized!");
         return false;
-    } 
+    }
 
-    // Score UI'sını güncelleme metodu
+    // Puan hesaplama metodu - iÅŸlem tÃ¼rÃ¼ne gÃ¶re farklÄ± puanlar
+    private int CalculateScore(int operationIndex)
+    {
+        int baseScore = baseScorePerCorrect;
+
+        // Ä°ÅŸlem tÃ¼rÃ¼ne gÃ¶re bonus puan
+        switch (operationTypes[operationIndex])
+        {
+            case 0: // Toplama
+                return baseScore;
+            case 1: // Ã‡Ä±karma
+                return baseScore + 5;
+            case 2: // Ã‡arpma
+                return baseScore + 10;
+            case 3: // BÃ¶lme
+                return baseScore + 15;
+            default:
+                return baseScore;
+        }
+    }
+
+    // Score UI'sÄ±nÄ± gÃ¼ncelleme metodu
     private void UpdateScoreUI()
     {
         if (correctCountText != null)
@@ -369,32 +412,32 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // Yeni eklenen metod: Yeni round başlatma
+    // Yeni eklenen metod: Yeni round baÅŸlatma
     private IEnumerator StartNewRound()
     {
         Debug.Log("All operations completed! Starting new round in " + newRoundDelay + " seconds...");
 
-        // Belirtilen süre kadar bekle
+        // Belirtilen sÃ¼re kadar bekle
         yield return new WaitForSeconds(newRoundDelay);
 
-        // Drop zone'lardan sayıları temizle
+        // Drop zone'lardan sayÄ±larÄ± temizle
         ClearDropZones();
 
-        // Bir frame bekle ki Unity objelerini düzgün temizleyebilsin
+        // Bir frame bekle ki Unity objelerini dÃ¼zgÃ¼n temizleyebilsin
         yield return null;
 
-        // Yeni oyunu başlat (score sıfırlanmaz, sadece operasyon durumları sıfırlanır)
+        // Yeni oyunu baÅŸlat (score sÄ±fÄ±rlanmaz, sadece operasyon durumlarÄ± sÄ±fÄ±rlanÄ±r)
         InitializeGame();
 
         Debug.Log("New round started!");
     }
 
-    // Yeni eklenen metod: Drop zone'ları temizleme
+    // Yeni eklenen metod: Drop zone'larÄ± temizleme
     private void ClearDropZones()
     {
         foreach (Transform dropZone in dropZones)
         {
-            // Önce tüm çocuk objeleri bir listeye al
+            // Ã–nce tÃ¼m Ã§ocuk objeleri bir listeye al
             List<Transform> childrenToDestroy = new List<Transform>();
 
             foreach (Transform child in dropZone)
@@ -412,7 +455,7 @@ public class GameManager : MonoBehaviour
                 Destroy(child.gameObject);
             }
 
-            // DropZone'u sıfırla
+            // DropZone'u sÄ±fÄ±rla
             DropZone dropZoneComponent = dropZone.GetComponent<DropZone>();
             if (dropZoneComponent != null)
             {
@@ -421,7 +464,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // Yeni eklenen metod: Manuel yeni round başlatma (opsiyonel)
+    // Yeni eklenen metod: Manuel yeni round baÅŸlatma (opsiyonel)
     public void ForceNewRound()
     {
         StopAllCoroutines(); // Mevcut coroutine'leri durdur
@@ -430,35 +473,98 @@ public class GameManager : MonoBehaviour
 
     public void ResetGame()
     {
-        StopAllCoroutines(); // Tüm coroutine'leri durdur
-        ClearDropZones(); // Drop zone'ları temizle
+        StopAllCoroutines(); // TÃ¼m coroutine'leri durdur
+        ClearDropZones(); // Drop zone'larÄ± temizle
 
-        // Score'ları sıfırla
+        // Score'larÄ± sÄ±fÄ±rla
         correctAnswersCount = 0;
         wrongAnswersCount = 0;
+        totalScore = 0;
+        gameStartTime = Time.time; // ZamanÄ± sÄ±fÄ±rla
         UpdateScoreUI();
 
         InitializeGame();
+
+        Debug.Log("ğŸ”„ MathGame resetlendi");
     }
 
-    // Score'ları sıfırlama metodu (opsiyonel)
+    // Score'larÄ± sÄ±fÄ±rlama metodu (opsiyonel)
     public void ResetScores()
     {
         correctAnswersCount = 0;
         wrongAnswersCount = 0;
+        totalScore = 0;
         UpdateScoreUI();
         Debug.Log("Scores reset!");
     }
 
-    // Mevcut score'ları alma metotları (opsiyonel)
+    // ================== IGameDataProvider Implementation ==================
+
+    public int GetCorrectAnswers()
+    {
+        return correctAnswersCount;
+    }
+
+    public int GetWrongAnswers()
+    {
+        return wrongAnswersCount;
+    }
+
+    public int GetScore()
+    {
+        return totalScore;
+    }
+
+    public float GetTimeSpent()
+    {
+        return Time.time - gameStartTime;
+    }
+
+    // ================== Eski metodlar (geriye uyumluluk iÃ§in) ==================
+
     public int GetCorrectCount()
     {
         return correctAnswersCount;
     }
 
-
     public int GetWrongCount()
     {
         return wrongAnswersCount;
+    }
+
+    // ================== Debug ve Test MetodlarÄ± ==================
+
+    [ContextMenu("Test - Show Current Stats")]
+    void ShowCurrentStats()
+    {
+        Debug.Log($"ğŸ“Š MathGame Stats:");
+        Debug.Log($"Correct Answers: {GetCorrectAnswers()}");
+        Debug.Log($"Wrong Answers: {GetWrongAnswers()}");
+        Debug.Log($"Total Score: {GetScore()}");
+        Debug.Log($"Time Spent: {GetTimeSpent():F1} seconds");
+        Debug.Log($"Accuracy: {(GetCorrectAnswers() > 0 ? (float)GetCorrectAnswers() / (GetCorrectAnswers() + GetWrongAnswers()) * 100f : 0):F1}%");
+    }
+
+    [ContextMenu("Test - Send Data to API")]
+    void SendDataToAPI()
+    {
+        if (GameDataSender.Instance != null)
+        {
+            GameDataSender.Instance.SendSessionData();
+        }
+        else
+        {
+            Debug.LogWarning("GameDataSender instance not found!");
+        }
+    }
+
+    // Oyun sonunda Ã§aÄŸrÄ±lacak metod
+    void OnDestroy()
+    {
+        // GameDataSender'a sahne bittiÄŸini bildir
+        if (GameDataSender.Instance != null)
+        {
+            Debug.Log("ğŸ® MathGame sahne sonu - final stats gÃ¶nderildi");
+        }
     }
 }

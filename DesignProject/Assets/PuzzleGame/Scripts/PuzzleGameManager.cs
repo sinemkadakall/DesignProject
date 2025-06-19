@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class PuzzleGameManager : MonoBehaviour
+public class PuzzleGameManager : MonoBehaviour, IGameDataProvider
 {
     [SerializeField] private Transform gameTransform;
     [SerializeField] private Transform piecePrefab;
@@ -26,6 +26,13 @@ public class PuzzleGameManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI timerText;
     private float timer = 60f;
     private const float levelTime = 60f; // Her level için süre
+    private float gameStartTime; // Oyun baþlangýç zamaný
+
+    // GameDataSender için veri deðiþkenleri
+    private int levelsCompleted = 0;
+    private int totalMoves = 0;
+    private int score = 0;
+    private bool gameFinished = false;
 
     // Create the game setup with size x size pieces.
     private void CreateGamePieces(float gapThickness)
@@ -102,6 +109,12 @@ public class PuzzleGameManager : MonoBehaviour
         size = 3;
         currentLevel = 1;
         timer = levelTime;
+        gameStartTime = Time.time;
+        levelsCompleted = 0;
+        totalMoves = 0;
+        score = 0;
+        gameFinished = false;
+
         UpdateUI();
         CreateGamePieces(0.01f);
 
@@ -130,6 +143,12 @@ public class PuzzleGameManager : MonoBehaviour
         // Süre bittiðinde sahneyi yeniden yükle
         if (timer <= 0f)
         {
+            gameFinished = true;
+            // GameDataSender'a veri gönder
+            if (GameDataSender.Instance != null)
+            {
+                GameDataSender.Instance.SendSessionData();
+            }
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
 
@@ -153,11 +172,20 @@ public class PuzzleGameManager : MonoBehaviour
                 {
                     if (pieces[i].gameObject == clickedObject)
                     {
+                        // Hamle sayýsýný artýr
+                        bool moveSuccessful = false;
+
                         // Komþu yönleri kontrol et (yukarý, aþaðý, sol, sað)
-                        if (SwapIfValid(i, -size, size)) break; // Yukarý
-                        if (SwapIfValid(i, +size, size)) break; // Aþaðý
-                        if (SwapIfValid(i, -1, 0)) break;       // Sol
-                        if (SwapIfValid(i, +1, size - 1)) break; // Sað
+                        if (SwapIfValid(i, -size, size)) { moveSuccessful = true; }
+                        else if (SwapIfValid(i, +size, size)) { moveSuccessful = true; }
+                        else if (SwapIfValid(i, -1, 0)) { moveSuccessful = true; }
+                        else if (SwapIfValid(i, +1, size - 1)) { moveSuccessful = true; }
+
+                        if (moveSuccessful)
+                        {
+                            totalMoves++;
+                            break;
+                        }
                     }
                 }
             }
@@ -167,6 +195,14 @@ public class PuzzleGameManager : MonoBehaviour
     // Level tamamlandýðýnda çaðrýlýr
     private void OnLevelComplete()
     {
+        levelsCompleted++;
+
+        // Skor hesapla (level tamamlama + kalan süre bonusu)
+        int levelScore = 100 + Mathf.RoundToInt(timer * 2); // Kalan süre baþýna 2 puan
+        score += levelScore;
+
+        Debug.Log($"Level {currentLevel} tamamlandý! Skor: {levelScore}, Toplam: {score}");
+
         if (currentLevel < maxLevel)
         {
             // Sonraki levela geç
@@ -178,7 +214,20 @@ public class PuzzleGameManager : MonoBehaviour
         }
         else
         {
-            // Oyun tamamlandý - sahneyi yeniden yükle veya kazanma ekraný göster
+            // Oyun tamamlandý
+            gameFinished = true;
+
+            // Oyun tamamlama bonusu
+            score += 200;
+
+            Debug.Log($"Oyun tamamlandý! Final skoru: {score}");
+
+            // GameDataSender'a veri gönder
+            if (GameDataSender.Instance != null)
+            {
+                GameDataSender.Instance.SendSessionData();
+            }
+
             StartCoroutine(GameCompleted());
         }
     }
@@ -240,7 +289,6 @@ public class PuzzleGameManager : MonoBehaviour
         shuffling = false;
     }
 
-   
     private void Shuffle()
     {
         int count = 0;
@@ -267,5 +315,49 @@ public class PuzzleGameManager : MonoBehaviour
                 count++;
             }
         }
+    }
+
+    // IGameDataProvider implementasyonu
+    public int GetCorrectAnswers()
+    {
+        return levelsCompleted; // Tamamlanan level sayýsý = doðru cevap
+    }
+
+    public int GetWrongAnswers()
+    {
+        // Puzzle oyununda yanlýþ cevap kavramý yok, 
+        // ancak eðer süre biterse 1 yanlýþ sayabiliriz
+        return gameFinished && timer <= 0 ? 1 : 0;
+    }
+
+    public int GetScore()
+    {
+        return score;
+    }
+
+    public float GetTimeSpent()
+    {
+        return Time.time - gameStartTime;
+    }
+
+    // Ek bilgi metotlarý (opsiyonel)
+    public int GetTotalMoves()
+    {
+        return totalMoves;
+    }
+
+    public int GetCurrentLevel()
+    {
+        return currentLevel;
+    }
+
+    public int GetLevelsCompleted()
+    {
+        return levelsCompleted;
+    }
+
+    public bool IsGameFinished()
+    {
+        return gameFinished;
     }
 }
