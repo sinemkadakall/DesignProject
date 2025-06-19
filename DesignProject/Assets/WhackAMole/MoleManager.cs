@@ -13,16 +13,16 @@ public class MoleManager : MonoBehaviour, IGameDataProvider
     [SerializeField] private TMPro.TextMeshProUGUI timeText;
     [SerializeField] private TMPro.TextMeshProUGUI scoreText;
 
-    // Hardcoded variables you may want to tune.
+
     private float startingTime = 30f;
 
-    // Global variables
+    
     private float timeRemaining;
     private HashSet<Mole> currentMoles = new HashSet<Mole>();
     private int score;
     private bool playing = false;
 
-    // GameDataSender için veri deðiþkenleri
+ 
     private float gameStartTime;
     private int totalHits = 0;        // Toplam vuruþ sayýsý (doðru cevap)
     private int totalMisses = 0;      // Toplam kaçýrma sayýsý (yanlýþ cevap)
@@ -30,26 +30,25 @@ public class MoleManager : MonoBehaviour, IGameDataProvider
     private int gamesPlayed = 0;      // Oynanan oyun sayýsý
     private bool gameFinished = false;
 
-    // This is public so the play button can see it.
+   
     public void StartGame()
     {
-        // Hide/show the UI elements we don't/do want to see.
+     
         playButton.SetActive(false);
         outOfTimeText.SetActive(false);
         bombText.SetActive(false);
         gameUI.SetActive(true);
 
-        // Hide all the visible moles.
         for (int i = 0; i < moles.Count; i++)
         {
             moles[i].Hide();
             moles[i].SetIndex(i);
         }
 
-        // Remove any old game state.
+     
         currentMoles.Clear();
 
-        // Start with 30 seconds.
+      
         timeRemaining = startingTime;
         score = 0;
         scoreText.text = "0";
@@ -198,7 +197,7 @@ public class MoleManager : MonoBehaviour, IGameDataProvider
         return 0f;
     }
 
-    // Ek bilgi metotlarý (opsiyonel)
+
     public int GetTotalHits()
     {
         return totalHits;
