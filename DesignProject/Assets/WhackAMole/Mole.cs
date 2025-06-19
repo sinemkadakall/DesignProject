@@ -188,7 +188,9 @@ public class Mole : MonoBehaviour
     private void SetLevel(int level)
     {
         // As level increases increse the bomb rate to 0.25 at level 10.
-        bombRate = Mathf.Min(level * 0.025f, 0.25f);
+        //bombRate = Mathf.Min(level * 0.025f, 0.25f);
+        bombRate = Mathf.Min(level * 0.025f, 0.5f); // %50’ye kadar bomba çýkabilir
+
 
         // Increase the amounts of HardHats until 100% at level 40.
         hardRate = Mathf.Min(level * 0.025f, 1f);
